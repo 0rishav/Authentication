@@ -23,7 +23,7 @@ app.use(session({ secret: process.env.SESSION_SECRET, resave: false, saveUniniti
 app.use(passport.initialize());
 app.use(passport.session());
 
-app.get("/test-route",(req,res)=>{
+app.get("/",(req,res)=>{
   res.status(200).json({
       success:true,
       message:"API WORKING"

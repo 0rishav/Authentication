@@ -1,0 +1,15 @@
+{
+    "version":2,
+    "builds":[
+        {
+            "src":"authentication/index.js",
+            "use":"@vercel/node"
+        }
+    ],
+    "routes":[
+        {
+            "src":"/(.*)",
+            "dest":"authentication/index.js"
+        }
+    ]
+}
