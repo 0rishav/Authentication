@@ -23,6 +23,13 @@ app.use(session({ secret: process.env.SESSION_SECRET, resave: false, saveUniniti
 app.use(passport.initialize());
 app.use(passport.session());
 
+app.get("/test-route",(req,res)=>{
+  res.status(200).json({
+      success:true,
+      message:"API WORKING"
+  })
+})
+
 
 app.use(express.json({ limit: "50mb" }));
 app.use(morgan("dev"))
@@ -41,12 +48,7 @@ app.use("/api/v1/auth", userRouter);
 app.use("/api/v1",registrationRouter)
 app.use("/api/v1",internshipRouter)
 
-app.get("/test-route",(req,res)=>{
-    res.status(200).json({
-        success:true,
-        message:"API WORKING"
-    })
-})
+
 
 app.use(ErrorMiddleware);
 
