@@ -3,9 +3,6 @@ import { connectDB } from "./utils/db.js"
 import cors from "cors"
 import morgan from "morgan"
 import dotenv from "dotenv"
-import session from 'express-session';
-import passport from './passport-js/passport.js'
-import googleAuthRoutes from './routes/passport.js'
 import cookieParser from "cookie-parser"
 import userRouter from "./routes/user.js"
 import registrationRouter from "./routes/registration.js"
@@ -18,10 +15,7 @@ const app = express()
 
 const PORT = process.env.PORT || 5000
 
-app.use(session({ secret: process.env.SESSION_SECRET, resave: false, saveUninitialized: true }));
 
-app.use(passport.initialize());
-app.use(passport.session());
 
 app.get("/",(req,res)=>{
   res.status(200).json({
@@ -43,7 +37,6 @@ const corsOptions = {
   
 app.use(cors(corsOptions))
 
-app.use('/auth', googleAuthRoutes);
 app.use("/api/v1/auth", userRouter);
 app.use("/api/v1",registrationRouter)
 app.use("/api/v1",internshipRouter)
