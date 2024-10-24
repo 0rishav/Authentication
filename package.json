@@ -5,11 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node index.js",
-    "start:prod": "NODE_ENV=production pm2 start index.js",
-    "stop:prod": "pm2 stop index.js",
-    "restart:prod": "pm2 restart index.js",
-    "logs": "pm2 logs"
+    "start": "node index.js"
   },
   "keywords": [],
   "author": "",

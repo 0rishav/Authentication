@@ -11,7 +11,6 @@ import userRouter from "./routes/user.js"
 import registrationRouter from "./routes/registration.js"
 import internshipRouter from "./routes/internship.js"
 import { ErrorMiddleware } from "./middlewares/error.js"
-import { isAuthenticated } from "./middlewares/auth.js"
 
 dotenv.config()
 
@@ -29,7 +28,7 @@ app.use(express.json({ limit: "50mb" }));
 app.use(morgan("dev"))
 app.use(cookieParser());
 const corsOptions = {
-    origin: 'http://127.0.0.1:5500',
+    origin: 'https://codexuslabs.com',
     credentials: true,
     methods: 'GET,POST,PUT,DELETE',
     allowedHeaders: 'Content-Type,Authorization', 
@@ -42,7 +41,7 @@ app.use("/api/v1/auth", userRouter);
 app.use("/api/v1",registrationRouter)
 app.use("/api/v1",internshipRouter)
 
-app.get("/test-route", isAuthenticated, (req,res)=>{
+app.get("/test-route",(req,res)=>{
     res.status(200).json({
         success:true,
         message:"API WORKING"
