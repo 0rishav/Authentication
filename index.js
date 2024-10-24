@@ -27,7 +27,7 @@ app.get("/",(req,res)=>{
 app.get("/test",(req,res)=>{
   res.status(200).json({
       success:true,
-      message:"API WORKING"
+      message:"API IS WORKING ALL API IS WORKING"
   })
 })
 
