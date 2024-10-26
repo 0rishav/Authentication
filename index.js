@@ -36,7 +36,7 @@ app.use(express.json({ limit: "50mb" }));
 app.use(morgan("dev"))
 app.use(cookieParser());
 const corsOptions = {
-    origin: 'http://127.0.0.1:5500',
+    origin: 'https://codexuslabs.com',
     credentials: true,
     methods: 'GET,POST,PUT,DELETE',
     allowedHeaders: 'Content-Type,Authorization', 
