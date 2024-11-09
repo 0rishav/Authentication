@@ -1,10 +1,12 @@
 import express from "express"
-import { createProjectRegistration } from "../controllers/registration.js";
+import { createProjectRegistration, getAllProjectRegistrations } from "../controllers/registration.js";
 
 
 const registrationRouter = express.Router();
 
 registrationRouter.post("/project-registration",createProjectRegistration)
+
+registrationRouter.get("/get-registration",getAllProjectRegistrations)
 
 // userRouter.get("/me",isAuthenticated,authenticateMe)
 

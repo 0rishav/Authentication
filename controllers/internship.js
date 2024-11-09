@@ -104,3 +104,21 @@ export const createInternshipRegistration = CatchAsyncError(
     }
   }
 );
+
+
+
+export const getAllInternshipRegistrations = CatchAsyncError(
+  async (req, res, next) => {
+    try {
+      const registrations = await internshipRegistration.find();
+
+      res.status(200).json({
+        success: true,
+        count: registrations.length,
+        registrations,
+      });
+    } catch (error) {
+      return next(new ErrorHandler(error.message, 500));
+    }
+  }
+);

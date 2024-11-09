@@ -100,3 +100,20 @@ export const createProjectRegistration = CatchAsyncError(async (req, res, next) 
     return next(new ErrorHandler(error.message, 500));
   }
 });
+
+
+export const getAllProjectRegistrations = CatchAsyncError(
+  async (req, res, next) => {
+    try {
+      const projects = await ProjectRegistration.find();
+
+      res.status(200).json({
+        success: true,
+        count: projects.length,
+        projects,
+      });
+    } catch (error) {
+      return next(new ErrorHandler(error.message, 500));
+    }
+  }
+);
