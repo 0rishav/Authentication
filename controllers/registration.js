@@ -1,6 +1,7 @@
 import ErrorHandler from "../utils/ErrorHandler.js";
 import { CatchAsyncError } from "../middlewares/catchAsyncError.js";
 import ProjectRegistration from "../models/registrationModal.js";
+import User from "../models/userModal.js";
 
 export const createProjectRegistration = CatchAsyncError(async (req, res, next) => {
   const {
@@ -78,13 +79,24 @@ export const createProjectRegistration = CatchAsyncError(async (req, res, next) 
       projectDescription: projectDescription.trim(),
       dateGiven,
       deadline,
-      queries: queries ? queries.trim() : ''
+      queries: queries ? queries.trim() : '',
+      statusHistory: [{ 
+        status: "Initiated", 
+        updatedAt: Date.now(),
+      }],
     });
+
+    await User.findByIdAndUpdate(
+      req.user._id,
+      { $push: { projectsCreated: newProject._id } },
+      { new: true }
+    );
 
     res.status(201).json({
       success: true,
       message: 'Project Registered Successfully',
       project: {
+        id: newProject._id,
         firstname: newProject.firstname,
         lastname: newProject.lastname,
         email: newProject.email,
@@ -98,6 +110,101 @@ export const createProjectRegistration = CatchAsyncError(async (req, res, next) 
 
   } catch (error) {
     return next(new ErrorHandler(error.message, 500));
+  }
+});
+
+export const updateProjectStatus = CatchAsyncError(async (req, res, next) => {
+  const projectId = req.params.projectId;
+
+  const statusOrder = ["Initiated", "In Progress", "Review", "Completed", "Delivered"];
+  const statusPercentageMapping = {
+    "Initiated": 0,
+    "In Progress": 25,
+    "Review": 50,
+    "Completed": 75,
+    "Delivered": 100,
+  };
+
+  const project = await ProjectRegistration.findById(projectId);
+  if (!project) {
+    return next(new ErrorHandler("Project not found", 404));
+  }
+
+  const currentStatus = project.status;
+
+  if (currentStatus === "Delivered") {
+    return next(new ErrorHandler("Project is already delivered. No further updates allowed.", 400));
+  }
+
+  const currentStatusIndex = statusOrder.indexOf(currentStatus);
+  const newStatus = statusOrder[currentStatusIndex + 1]; 
+  const newPercentage = statusPercentageMapping[newStatus];
+
+  if (!project.statusHistory) {
+    project.statusHistory = []; 
+  }
+
+  project.statusHistory.push({
+    status: newStatus,
+    updatedAt: Date.now(),
+    percentage: newPercentage,
+  });
+
+  project.status = newStatus;
+  project.completionPercentage = newPercentage;
+
+  await project.save();
+
+  res.status(200).json({
+    success: true,
+    message: `Project status updated to ${newStatus}`,
+    project: {
+      id: project._id,
+      projectName: project.projectName,
+      status: project.status,
+      completionPercentage: project.completionPercentage,
+      statusHistory: project.statusHistory,
+    }
+  });
+});
+
+export const getProjectStatusHistory = CatchAsyncError(async (req, res, next) => {
+  try {
+    const projectId = req.params.projectId;
+
+    const project = await ProjectRegistration.findById(projectId);
+
+    if (!project) {
+      return next(new ErrorHandler("Project not found", 404));
+    }
+
+    res.status(200).json({
+      success: true,
+      statusHistory: project.statusHistory,
+    });
+  } catch (error) {
+    return next(new ErrorHandler("Unable to fetch status history", 500));
+  }
+});
+
+export const getAllProjectsDetails = CatchAsyncError(async (req, res, next) => {
+  try {
+    const projects = await ProjectRegistration.find({}, "_id projectName firstname lastname email status completionPercentage");
+
+    res.status(200).json({
+      success: true,
+      projects: projects.map(project => ({
+        _id:project._id,
+        projectName: project.projectName,
+        firstname: project.firstname,
+        lastname: project.lastname,
+        email: project.email,
+        status: project.status,
+        completionPercentage: project.completionPercentage,
+      })),
+    });
+  } catch (error) {
+    return next(new ErrorHandler("Unable to fetch project details", 500));
   }
 });
 

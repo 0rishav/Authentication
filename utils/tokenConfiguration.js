@@ -24,6 +24,8 @@ export const refreshTokenOptions = {
 export const sendToken = (user, statusCode, res) => {
   const accessToken = user.SignAccessToken();
   const refreshToken = user.SignRefreshToken();
+ 
+
 
   // Only set secure to true in production
   if (process.env.NODE_ENV === 'production') {
@@ -31,10 +33,16 @@ export const sendToken = (user, statusCode, res) => {
     refreshTokenOptions.secure = true;
   }
   
-
+  const role = user.role
 
   res.cookie('access_token', accessToken, accessTokenOptions);
   res.cookie('refresh_token', refreshToken, refreshTokenOptions);
+  res.cookie('role', role, { 
+    httpOnly: true, 
+    sameSite: 'none', 
+    secure: false, 
+    maxAge: 60 * 60 * 1000 
+  });
 
   const { password, ...userWithoutPassword } = user.toObject();
 

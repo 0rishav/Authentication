@@ -1,66 +1,90 @@
-import dotenv from 'dotenv';
-import mongoose from 'mongoose';
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
+import dotenv from "dotenv";
+import mongoose from "mongoose";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 dotenv.config();
 
 const emailRegexPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const userSchema = new mongoose.Schema({
+const userSchema = new mongoose.Schema(
+  {
     name: {
-        type: String,
-        required: [true, "Please Enter Your Name"],
+      type: String,
+      required: [true, "Please Enter Your Name"],
     },
     email: {
-        type: String,
-        required: [true, "Please Enter Your Email"],
-        validate: {
-            validator: function (value) {
-                return emailRegexPattern.test(value);
-            },
-            message: "Please Enter a Valid Email",
+      type: String,
+      required: [true, "Please Enter Your Email"],
+      validate: {
+        validator: function (value) {
+          return emailRegexPattern.test(value);
         },
-        unique: true,
+        message: "Please Enter a Valid Email",
+      },
+      unique: true,
     },
     password: {
-        type: String,
-        required:false,
-        minlength: [6, "Password must be at least 6 characters"],
-        select: false,
+      type: String,
+      required: true,
+      minlength: [6, "Password must be at least 6 characters"],
+      // select: false,
     },
-    googleId: {
-        type: String,
-        unique: true,
-        sparse: true, 
+    role: {
+      type: String,
+      enum: ["user", "admin"],
+      default: "user",
     },
-}, { timestamps: true });
+    projectsCreated: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "ProjectRegistration", 
+      },
+    ],
+    refreshToken: {
+      type: String,
+    },
+  },
+  { timestamps: true }
+);
 
-userSchema.pre('save', async function (next) {
-    if (!this.isModified('password')) {
-        return next();
-    }
-    this.password = await bcrypt.hash(this.password, 10);
-    next();
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) {
+    return next();
+  }
+  this.password = await bcrypt.hash(this.password, 10);
+  next();
 });
-
-userSchema.methods.SignAccessToken = function () {
-    return jwt.sign({ id: this._id }, process.env.ACCESS_TOKEN || '', {
-        expiresIn: '5m',
-    });
+userSchema.methods.isPasswordCorrect = async function (password) {
+  return await bcrypt.compare(password, this.password);
 };
 
-userSchema.methods.SignRefreshToken = function () {
-    return jwt.sign({ id: this._id }, process.env.REFRESH_TOKEN || '', {
-        expiresIn: '3d',
-    });
+userSchema.methods.generateAccessToken = async function () {
+  return jwt.sign(
+    {
+      _id: this._id,
+      name: this.name,
+      email: this.email,
+    },
+    process.env.ACCESS_TOKEN_SECRET,
+    {
+      expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
+    }
+  );
 };
 
-userSchema.methods.comparePassword = async function(enteredPassword){
-    return await bcrypt.compare(enteredPassword,this.password);
+userSchema.methods.generateRefreshToken = async function () {
+  return jwt.sign(
+    {
+      _id: this._id,
+    },
+    process.env.REFRESH_TOKEN_SECRET,
+    {
+      expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
+    }
+  );
 };
 
-
-const User = mongoose.model('User', userSchema);
+const User = mongoose.model("User", userSchema);
 
 export default User;

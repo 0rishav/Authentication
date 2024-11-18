@@ -20,7 +20,6 @@ const projectRegistrationSchema = new mongoose.Schema({
   email: {
     type: String,
     required: [true, "Please enter your email address"],
-    unique: true,
     validate: [validator.isEmail, "Please enter a valid email address"], 
   },
   mobileNumber: {
@@ -103,6 +102,28 @@ const projectRegistrationSchema = new mongoose.Schema({
     trim: true,
     maxlength: [500, "Queries cannot exceed 500 characters"],
   },
+  status: {
+    type: String,
+    enum: ["Initiated", "In Progress", "Review", "Completed", "Delivered"],
+    default: "Initiated",
+  },
+  completionPercentage: {
+    type: Number,
+    default: 0,
+    min: [0, "Completion percentage cannot be less than 0"],
+    max: [100, "Completion percentage cannot exceed 100"],
+  },
+  statusHistory: [{
+    status: {
+      type: String,
+      enum: ["Initiated", "In Progress", "Review", "Completed", "Delivered"],
+      required: true,
+    },
+    updatedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  }],
 }, {
   timestamps: true, 
 });

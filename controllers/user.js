@@ -1,14 +1,30 @@
 import ErrorHandler from "../utils/ErrorHandler.js";
 import jwt from "jsonwebtoken";
-import { accessTokenOptions, refreshTokenOptions, sendToken } from "../utils/tokenConfiguration.js";
 import { CatchAsyncError } from "../middlewares/catchAsyncError.js";
 import User from "../models/userModal.js";
 import { sendMail } from "../utils/sendMail.js";
 import { fileURLToPath } from "url";
 import path from "path";
 import ejs from "ejs";
+import dotenv from "dotenv";
 
+dotenv.config();
 
+const generateAccessAndRefreshToken = async (userId) => {
+  try {
+    const user = await User.findById(userId);
+    const accessToken = await user.generateAccessToken();
+    const refreshToken = await user.generateRefreshToken();
+
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    return { accessToken, refreshToken };
+  } catch (error) {
+    console.error("Error in generateAccessAndRefreshToken:", error.message);
+    throw new Error("Failed to generate tokens");
+  }
+};
 
 export const registrationUser = CatchAsyncError(async (req, res, next) => {
   const __filename = fileURLToPath(import.meta.url);
@@ -88,7 +104,7 @@ export const activateUser = CatchAsyncError(async (req, res, next) => {
       email,
       password,
     });
-    user.password = undefined
+    user.password = undefined;
     res.status(201).json({
       success: true,
       message: "User Registered Successfully",
@@ -107,88 +123,221 @@ export const loginUser = CatchAsyncError(async (req, res, next) => {
       return next(new ErrorHandler("Please Enter Email or Password", 400));
     }
 
-    const user = await User.findOne({ email }).select("+password");
+    const user = await User.findOne({ email });
 
     if (!user) {
       return next(new ErrorHandler("Invalid Email or Password", 400));
     }
 
-    const isPasswordMatch = await user.comparePassword(password);
+    const isPasswordMatch = await user.isPasswordCorrect(password);
 
     if (!isPasswordMatch) {
       return next(new ErrorHandler("Invalid Email or Password", 400));
     }
 
-    sendToken(user, 200, res);
-  } catch (error) {
-    return next(new ErrorHandler(error.message, 400));
-  }
-});
+    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+      user._id
+    );
 
-export const logoutUser = CatchAsyncError(async (req, res, next) => {
-  try {
-    res.cookie("access_token", "", { maxAge: 1 });
-    res.cookie("refresh_token", "", { maxAge: 1 });
+    const loggedInUser = await User.findById(user._id).select(
+      "-password -refreshToken"
+    );
+    res.set({
+      Authorization: `Bearer ${accessToken}`,
+      "x-refresh-token": refreshToken,
+    });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Logged Out Successfully",
+      user: loggedInUser,
+      accessToken,
+      refreshToken,
+      message: "User LoggedIn Successfully",
     });
   } catch (error) {
     return next(new ErrorHandler(error.message, 400));
   }
 });
 
-export const updateAccessToken = CatchAsyncError(async (req, res, next) => {
+export const refreshAccessToken = CatchAsyncError(async (req, res, next) => {
+  const incomingRefreshToken = req
+    .header("Authorization")
+    ?.replace("Bearer ", "");
+  console.log(incomingRefreshToken);
+
+  if (!incomingRefreshToken) {
+    return next(new ErrorHandler("UnAuthorized Request!", 401));
+  }
+
   try {
-    const refresh_token = req.cookies.refresh_token;
+    const decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    );
+    console.log();
 
-    const decoded = jwt.verify(refresh_token, process.env.REFRESH_TOKEN);
-
-    const message = `Could Not Refresh Token`;
-    if (!decoded) {
-      return next(new ErrorHandler(message, 400));
-    }
-
-    const user = await User.findById(decoded.id);
+    const user = await User.findById(decodedToken?._id);
 
     if (!user) {
-      return next(
-        new ErrorHandler("Please login to access this resource", 400)
-      );
+      return next(new ErrorHandler("Invalid Token!", 404));
+    }
+    if (incomingRefreshToken !== user?.refreshToken) {
+      return next(new ErrorHandler("UnAuthorized Token is Expired!", 401));
     }
 
-    const accessToken = jwt.sign({ id: user._id }, process.env.ACCESS_TOKEN, {
-      expiresIn: "5m",
+    const { accessToken, refreshToken: newRefreshToken } =
+      await generateAccessAndRefreshToken(user._id);
+
+    res.setHeader("Authorization", `Bearer ${accessToken}`);
+
+    return res.status(200).json({
+      success: true,
+      accessToken,
+      refreshToken: newRefreshToken,
+      message: "Token Refreshed Successfully",
     });
-
-    const refreshToken = jwt.sign({ id: user._id }, process.env.REFRESH_TOKEN, {
-      expiresIn: "3d",
-    });
-
-    req.user = user;
-
-    res.cookie("access_token", accessToken, accessTokenOptions);
-    res.cookie("refresh_token", refreshToken, refreshTokenOptions);
-
-    return next();
   } catch (error) {
     return next(new ErrorHandler(error.message, 400));
   }
 });
 
-export const authenticateMe = CatchAsyncError(async (req, res, next) => {
+export const logoutUser = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const user = await User.findById(req.user._id);
 
-    const user = await User.findById(userId);
+    if (user) {
+      user.refreshToken = undefined;
+      await user.save();
+
+      res.status(200).json({
+        success: true,
+        message: "Logged Out Successfully",
+      });
+    } else {
+      res.status(404).json({ success: false, message: "User not found" });
+    }
+  } catch (error) {
+    console.log("Error:", error.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+export const getUserDetails = async (req, res) => {
+  try {
+    const token = req.header("Authorization")?.replace("Bearer ", "");
+
+    if (!token) {
+      return next(new ErrorHandler("UnAuthorized Token is Required!", 401));
+    }
+
+    const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+
+    if (!decodedToken) {
+      return next(new ErrorHandler("Invalid or Expired Token!", 404));
+    }
+
+    const userId = decodedToken?._id;
+
+    const user = await User.findById(userId)
+      .select("-password -refreshToken")
+      .populate({
+        path: "projectsCreated",
+        select: "_id projectName projectDescription status",
+      });
 
     if (!user) {
-      return next(new ErrorHandler("User Not Found", 400));
+      return next(new ErrorHandler("User Not Found!", 404));
     }
 
-    res.json(user);
+    return res.status(200).json({
+      success: true,
+      user,
+      message: "User details fetched successfully!",
+    });
   } catch (error) {
     return next(new ErrorHandler(error.message, 400));
   }
+};
+
+export const updateUserDetails = async (req, res, next) => {
+  try {
+    const token = req.header("Authorization")?.replace("Bearer ", "");
+
+    if (!token) {
+      return next(new ErrorHandler("Unauthorized! Token is required.", 401));
+    }
+
+    const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+
+    if (!decodedToken) {
+      return next(new ErrorHandler("Invalid or Expired Token!", 403));
+    }
+
+    const userId = decodedToken?._id;
+
+    const user = await User.findById(userId).select("-password -role -refreshToken");
+
+    if (!user) {
+      return next(new ErrorHandler("User not found!", 404));
+    }
+
+    Object.keys(req.body).forEach((key) => {
+      user[key] = req.body[key];
+    });
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      user,
+      message: "User details updated successfully!",
+    });
+  } catch (error) {
+    return next(new ErrorHandler(error.message, 400));
+  }
+};
+
+export const getAllUsers = CatchAsyncError(async (req, res, next) => {
+  try {
+    const users = await User.find().select("-password -refreshToken");
+
+    if (!users || users.length === 0) {
+      return next(new ErrorHandler("No users found!", 404));
+    }
+
+    return res.status(200).json({
+      success: true,
+      users,
+      message: "Users fetched successfully!",
+    });
+  } catch (error) {
+    return next(new ErrorHandler("Unable to fetch users!", 500));
+  }
 });
+
+export const updateUserRole = CatchAsyncError(async (req, res, next) => {
+  try {
+    const { role } = req.body; 
+    const { id } = req.params;
+
+    if (req.user.role !== "admin") {
+      return next(new ErrorHandler("Access denied! Admin only action.", 403));
+    }
+
+    const user = await User.findById(id);
+
+    if (!user) {
+      return next(new ErrorHandler("User not found!", 404));
+    }
+
+    user.role = role;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `User role updated to ${role} successfully!`,
+    });
+  } catch (error) {
+    return next(new ErrorHandler("Unable to update role!", 500));
+  }
+})
