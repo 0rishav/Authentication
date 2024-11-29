@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 
 export const isAuthenticated = async (req, res, next) => {
   try {
-    const token = req.header("Authorization")?.replace("Bearer ", "");
+    const token = req.cookies.accessToken;
 
     if (!token) {
       return next(
@@ -15,7 +15,7 @@ export const isAuthenticated = async (req, res, next) => {
 
     const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 
-    const user = await User.findById(decodedToken?._id)
+    const user = await User.findById(decodedToken?._id);
 
     if (!user) {
       return next(new ErrorHandler("Invalid Token!", 404));
@@ -30,13 +30,15 @@ export const isAuthenticated = async (req, res, next) => {
       name: user.name,
       email: user.email,
       role: user.role,
-    }
+    };
 
     next();
   } catch (error) {
     return next(new ErrorHandler(error.message, 404));
   }
 };
+
+
 export const isAdmin = CatchAsyncError(async (req, res, next) => {
   const userId = req.user._id;
 

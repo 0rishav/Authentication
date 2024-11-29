@@ -139,19 +139,27 @@ export const loginUser = CatchAsyncError(async (req, res, next) => {
       user._id
     );
 
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true, 
+      secure: process.env.NODE_ENV === "production", 
+      sameSite: "strict", 
+      maxAge: 15 * 60 * 1000, 
+    });
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 2 * 24 * 60 * 60 * 1000 , 
+    });
+
     const loggedInUser = await User.findById(user._id).select(
       "-password -refreshToken"
     );
-    res.set({
-      Authorization: `Bearer ${accessToken}`,
-      "x-refresh-token": refreshToken,
-    });
-
     return res.status(200).json({
       success: true,
       user: loggedInUser,
-      accessToken,
-      refreshToken,
+      accessToken: accessToken,
       message: "User LoggedIn Successfully",
     });
   } catch (error) {
@@ -160,10 +168,8 @@ export const loginUser = CatchAsyncError(async (req, res, next) => {
 });
 
 export const refreshAccessToken = CatchAsyncError(async (req, res, next) => {
-  const incomingRefreshToken = req
-    .header("Authorization")
-    ?.replace("Bearer ", "");
-  console.log(incomingRefreshToken);
+  const incomingRefreshToken = req.cookies.refreshToken;
+
 
   if (!incomingRefreshToken) {
     return next(new ErrorHandler("UnAuthorized Request!", 401));
@@ -174,26 +180,35 @@ export const refreshAccessToken = CatchAsyncError(async (req, res, next) => {
       incomingRefreshToken,
       process.env.REFRESH_TOKEN_SECRET
     );
-    console.log();
 
     const user = await User.findById(decodedToken?._id);
 
     if (!user) {
       return next(new ErrorHandler("Invalid Token!", 404));
     }
+
     if (incomingRefreshToken !== user?.refreshToken) {
       return next(new ErrorHandler("UnAuthorized Token is Expired!", 401));
     }
 
-    const { accessToken, refreshToken: newRefreshToken } =
-      await generateAccessAndRefreshToken(user._id);
+    const { accessToken, refreshToken: newRefreshToken } = await generateAccessAndRefreshToken(user._id);
 
-    res.setHeader("Authorization", `Bearer ${accessToken}`);
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true, 
+      secure: false, 
+      sameSite: "strict", 
+      maxAge: 15 * 60 * 1000, 
+    });
+
+    res.cookie("refreshToken", newRefreshToken, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "strict",
+      maxAge: 2 * 24 * 60 * 60 * 1000, 
+    });
 
     return res.status(200).json({
       success: true,
-      accessToken,
-      refreshToken: newRefreshToken,
       message: "Token Refreshed Successfully",
     });
   } catch (error) {
@@ -208,6 +223,20 @@ export const logoutUser = async (req, res) => {
     if (user) {
       user.refreshToken = undefined;
       await user.save();
+
+      res.cookie("accessToken", "", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production", 
+        sameSite: "strict", 
+        expires: new Date(0), 
+      });
+
+      res.cookie("refreshToken", "", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        expires: new Date(0), 
+      });
 
       res.status(200).json({
         success: true,
@@ -224,7 +253,7 @@ export const logoutUser = async (req, res) => {
 
 export const getUserDetails = async (req, res) => {
   try {
-    const token = req.header("Authorization")?.replace("Bearer ", "");
+    const token = req.cookies?.accessToken;
 
     if (!token) {
       return next(new ErrorHandler("UnAuthorized Token is Required!", 401));
@@ -233,16 +262,16 @@ export const getUserDetails = async (req, res) => {
     const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 
     if (!decodedToken) {
-      return next(new ErrorHandler("Invalid or Expired Token!", 404));
+      return next(new ErrorHandler("Invalid or Expired Token!", 401));
     }
 
     const userId = decodedToken?._id;
 
     const user = await User.findById(userId)
-      .select("-password -refreshToken")
+      .select("-password -refreshToken") 
       .populate({
-        path: "projectsCreated",
-        select: "_id projectName projectDescription status",
+        path: "projectsCreated",  
+        select: "_id projectName projectDescription status", 
       });
 
     if (!user) {
@@ -252,6 +281,7 @@ export const getUserDetails = async (req, res) => {
     return res.status(200).json({
       success: true,
       user,
+      accessToken:token,
       message: "User details fetched successfully!",
     });
   } catch (error) {
@@ -261,7 +291,7 @@ export const getUserDetails = async (req, res) => {
 
 export const updateUserDetails = async (req, res, next) => {
   try {
-    const token = req.header("Authorization")?.replace("Bearer ", "");
+    const token = req.cookies?.accessToken;
 
     if (!token) {
       return next(new ErrorHandler("Unauthorized! Token is required.", 401));
