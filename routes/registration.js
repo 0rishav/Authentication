@@ -5,7 +5,7 @@ import { isAdmin, isAuthenticated } from "../middlewares/auth.js";
 
 const registrationRouter = express.Router();
 
-registrationRouter.post("/project-registration",isAuthenticated,createProjectRegistration);
+registrationRouter.post("/project-registration",createProjectRegistration);
 
 registrationRouter.put('/project-status/:projectId',isAuthenticated,isAdmin, updateProjectStatus);
 
