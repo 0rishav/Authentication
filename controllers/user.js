@@ -142,14 +142,14 @@ export const loginUser = CatchAsyncError(async (req, res, next) => {
     res.cookie("accessToken", accessToken, {
       httpOnly: true, 
       secure: true, 
-      sameSite: "strict", 
+      sameSite: "None", 
       maxAge: 15 * 60 * 1000, 
     });
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: true,
-      sameSite: "strict",
+      sameSite: "None",
       maxAge: 2 * 24 * 60 * 60 * 1000 , 
     });
 
@@ -196,14 +196,14 @@ export const refreshAccessToken = CatchAsyncError(async (req, res, next) => {
     res.cookie("accessToken", accessToken, {
       httpOnly: true, 
       secure: true, 
-      sameSite: "strict", 
+      sameSite: "None", 
       maxAge: 15 * 60 * 1000, 
     });
 
     res.cookie("refreshToken", newRefreshToken, {
       httpOnly: true,
       secure: true,
-      sameSite: "strict",
+      sameSite: "None",
       maxAge: 2 * 24 * 60 * 60 * 1000, 
     });
 
@@ -227,14 +227,14 @@ export const logoutUser = async (req, res) => {
       res.cookie("accessToken", "", {
         httpOnly: true,
         secure: true, 
-        sameSite: "strict", 
+        sameSite: "None", 
         expires: new Date(0), 
       });
 
       res.cookie("refreshToken", "", {
         httpOnly: true,
         secure: true,
-        sameSite: "strict",
+        sameSite: "None",
         expires: new Date(0), 
       });
 
