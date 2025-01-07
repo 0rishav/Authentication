@@ -148,7 +148,7 @@ export const loginUser = CatchAsyncError(async (req, res, next) => {
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: true",
+      secure: true,
       sameSite: "strict",
       maxAge: 2 * 24 * 60 * 60 * 1000 , 
     });
@@ -233,7 +233,7 @@ export const logoutUser = async (req, res) => {
 
       res.cookie("refreshToken", "", {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: true,
         sameSite: "strict",
         expires: new Date(0), 
       });
