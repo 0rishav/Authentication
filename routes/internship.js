@@ -5,7 +5,7 @@ import { isAdmin, isAuthenticated } from "../middlewares/auth.js";
 
 const internshipRouter = express.Router();
 
-internshipRouter.post("/internship-registration",isAuthenticated,createInternshipRegistration)
+internshipRouter.post("/internship-registration",createInternshipRegistration)
 
 internshipRouter.get("/get-internship", getAllInternshipRegistrations)
 
