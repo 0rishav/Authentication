@@ -86,12 +86,6 @@ export const createProjectRegistration = CatchAsyncError(async (req, res, next) 
       }],
     });
 
-    await User.findByIdAndUpdate(
-      req.user._id,
-      { $push: { projectsCreated: newProject._id } },
-      { new: true }
-    );
-
     res.status(201).json({
       success: true,
       message: 'Project Registered Successfully',
